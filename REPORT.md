@@ -16,15 +16,14 @@ In my testing, I successfully executed a **Time-Based Blind SQLi** attack, forci
 ---
 
 ## 2. The Root Cause (Vulnerable Code)
-The vulnerability is located in the **Repository** layer, where user-supplied input is treated as part of the SQL command instead of data.
-
+Look closely at the SELECT part of the Query Builder ($qb). The developer used String Concatenation (the . dots) for the $owner variable:
 **File Path:** `src/Modules/Items/Repositories/ItemsRepository.php`
 
 ### **The "Dirty" Code:**
-```php
-// The variable $playlistId is concatenated directly into the query string.
-$query = "SELECT i.* FROM items i WHERE i.playlist_id = " . $playlistId;
-```
+<img width="670" height="139" alt="Screenshot 2026-03-23 at 10 14 10 PM" src="https://github.com/user-attachments/assets/76ca78c8-0520-4bb1-92cd-fcacf40fcb91" />
+
+Why this is the Bug: Even though they used a secure parameter for playlist_id later on, they got lazy with $owner. If an attacker can control the $owner input, they can "break out" of that CASE statement and run their own SQL.
+
 ---
 
 ## 3. Proof of Concept:
@@ -39,12 +38,14 @@ To confirm the vulnerability, I performed **Component-Level Testing**. While the
 ### **Detailed Steps to Reproduce:**
 
 #### **Step 1: Environment Setup**
-* I initialized a local **XAMPP stack** on my MacBook Air.
+* I initialized a local **XAMPP stack** on my system.
 * I created a database named `garlic_hub` and imported the `items` table schema.
 * I ensured the `playlist_id` column was populated to simulate a real-world application state.
 
 #### **Step 2: Creating the Exploit Script**
 I created a file named `exploit.php` in the project root. This script mimics the **exact** database connection and the **exact** vulnerable query line found in `ItemsRepository.php`.
+
+<img width="516" height="557" alt="Screenshot 2026-03-23 at 9 46 55 PM" src="https://github.com/user-attachments/assets/f253052d-b9bb-4eb8-bf5c-a04c639dc999" />
 
 ### Step 3: Execution and Observation
 * I executed the script via the terminal: ```php exploit.php```
@@ -57,7 +58,8 @@ I created a file named `exploit.php` in the project root. This script mimics the
 
 Terminal Evidence (Screenshot below):
 
----
+<img width="475" height="119" alt="Screenshot 2026-03-23 at 9 47 18 PM" src="https://github.com/user-attachments/assets/db5e4e3c-f7e5-4606-b900-1aa5ab1f3c9e" />
+
 
 ### 4. Impact Analysis (Why this is Critical)
 In the world of Cybersecurity, a "Time-Based" leak is a slow but steady way to destroy a system. This is a Critical (9.8/10) threat because:
@@ -92,7 +94,7 @@ $stmt->bindValue('id', (int)$playlistId);
 $stmt->execute();
 ```
 ---
-### 6. Conclusion**
+### 6. Conclusion
 
 This discovery confirms that Garlic-Hub is vulnerable to critical data theft. As a cybersecurity professional, I recommend immediate patching of all Repository files to use Prepared Statements. This research proves that even "hidden" back-end code can be uncovered and exploited if the Secure Coding Standards are not followed.
 
